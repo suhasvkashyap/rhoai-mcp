@@ -11,6 +11,13 @@ from rhoai_mcp.utils.response import (
     Verbosity,
     paginate,
 )
+from rhoai_mcp.utils.urls import reset_url_builder
+
+
+@pytest.fixture(autouse=True)
+def reset_urls() -> None:
+    """Reset the global URL builder before each test."""
+    reset_url_builder()
 
 
 class TestVerbosity:
@@ -133,6 +140,8 @@ class TestResponseBuilderWorkbench:
             "name": "test-wb",
             "namespace": "test-ns",
             "uid": "test-uid-123",
+            "console_url": None,
+            "dashboard_url": None,
         }
         wb.display_name = "Test Workbench"
         wb.status.value = "Running"
@@ -222,6 +231,8 @@ class TestResponseBuilderProject:
             "name": "test-project",
             "namespace": None,
             "uid": "project-uid-123",
+            "console_url": None,
+            "dashboard_url": None,
         }
         project.display_name = "Test Project"
         project.description = "A test project"
@@ -290,6 +301,8 @@ class TestResponseBuilderTrainingJob:
             "name": "train-abc123",
             "namespace": "test-ns",
             "uid": "train-uid-123",
+            "console_url": None,
+            "dashboard_url": None,
         }
         job.status.value = "Running"
         job.model_id = "llama-7b"
@@ -371,13 +384,14 @@ class TestResourceMetadataToSourceDict:
 
         source = metadata.to_source_dict()
 
-        assert source == {
-            "kind": "Notebook",
-            "api_version": "kubeflow.org/v1",
-            "name": "test-resource",
-            "namespace": "test-ns",
-            "uid": "uid-123",
-        }
+        assert source["kind"] == "Notebook"
+        assert source["api_version"] == "kubeflow.org/v1"
+        assert source["name"] == "test-resource"
+        assert source["namespace"] == "test-ns"
+        assert source["uid"] == "uid-123"
+        # URLs are None when not configured
+        assert source["console_url"] is None
+        assert source["dashboard_url"] is None
 
     def test_to_source_dict_with_none_values(self) -> None:
         """Test that to_source_dict handles None values."""
@@ -389,10 +403,10 @@ class TestResourceMetadataToSourceDict:
 
         source = metadata.to_source_dict()
 
-        assert source == {
-            "kind": None,
-            "api_version": None,
-            "name": "test-resource",
-            "namespace": None,
-            "uid": None,
-        }
+        assert source["kind"] is None
+        assert source["api_version"] is None
+        assert source["name"] == "test-resource"
+        assert source["namespace"] is None
+        assert source["uid"] is None
+        assert source["console_url"] is None
+        assert source["dashboard_url"] is None

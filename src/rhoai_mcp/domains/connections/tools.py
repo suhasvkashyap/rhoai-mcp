@@ -186,6 +186,10 @@ def register_tools(mcp: FastMCP, server: "RHOAIServer") -> None:
         client = ConnectionClient(server.k8s)
         client.delete_data_connection(name, namespace)
 
+        from rhoai_mcp.utils.urls import get_url_builder
+
+        url_builder = get_url_builder()
+
         return {
             "name": name,
             "namespace": namespace,
@@ -197,5 +201,7 @@ def register_tools(mcp: FastMCP, server: "RHOAIServer") -> None:
                 "name": name,
                 "namespace": namespace,
                 "uid": None,
+                "console_url": url_builder.build_console_url("Secret", name, namespace),
+                "dashboard_url": url_builder.build_dashboard_url("Secret", name, namespace),
             },
         }

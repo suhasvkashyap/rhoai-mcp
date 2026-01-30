@@ -34,13 +34,22 @@ class ResourceMetadata(BaseModel):
     annotations: dict[str, str] = Field(default_factory=dict, description="Resource annotations")
 
     def to_source_dict(self) -> dict[str, Any]:
-        """Return _source metadata for grounding responses to K8s resources."""
+        """Return _source metadata for grounding responses to K8s resources.
+
+        Includes console_url and dashboard_url if configured.
+        """
+        from rhoai_mcp.utils.urls import get_url_builder
+
+        url_builder = get_url_builder()
+
         return {
             "kind": self.kind,
             "api_version": self.api_version,
             "name": self.name,
             "namespace": self.namespace,
             "uid": self.uid,
+            "console_url": url_builder.build_console_url(self.kind, self.name, self.namespace),
+            "dashboard_url": url_builder.build_dashboard_url(self.kind, self.name, self.namespace),
         }
 
     @classmethod

@@ -183,6 +183,10 @@ def register_tools(mcp: FastMCP, server: "RHOAIServer") -> None:
         client = InferenceClient(server.k8s)
         client.delete_inference_service(name, namespace)
 
+        from rhoai_mcp.utils.urls import get_url_builder
+
+        url_builder = get_url_builder()
+
         return {
             "name": name,
             "namespace": namespace,
@@ -194,6 +198,8 @@ def register_tools(mcp: FastMCP, server: "RHOAIServer") -> None:
                 "name": name,
                 "namespace": namespace,
                 "uid": None,
+                "console_url": url_builder.build_console_url("InferenceService", name, namespace),
+                "dashboard_url": url_builder.build_dashboard_url("InferenceService", name, namespace),
             },
         }
 

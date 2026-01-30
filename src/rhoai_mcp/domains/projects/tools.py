@@ -162,6 +162,10 @@ def register_tools(mcp: FastMCP, server: "RHOAIServer") -> None:
         client = ProjectClient(server.k8s)
         client.delete_project(name)
 
+        from rhoai_mcp.utils.urls import get_url_builder
+
+        url_builder = get_url_builder()
+
         return {
             "name": name,
             "deleted": True,
@@ -172,6 +176,8 @@ def register_tools(mcp: FastMCP, server: "RHOAIServer") -> None:
                 "name": name,
                 "namespace": None,
                 "uid": None,
+                "console_url": url_builder.build_console_url("Project", name, None),
+                "dashboard_url": url_builder.build_dashboard_url("Project", name, None),
             },
         }
 

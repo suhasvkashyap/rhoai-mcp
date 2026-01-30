@@ -142,6 +142,16 @@ class RHOAIConfig(BaseSettings):
         description="Enable evaluation harness for tracking agent performance",
     )
 
+    # Source URL settings for response grounding
+    console_url: str | None = Field(
+        default=None,
+        description="OpenShift console base URL (e.g., https://console-openshift-console.apps.mycluster.example.com)",
+    )
+    dashboard_url: str | None = Field(
+        default=None,
+        description="RHOAI dashboard base URL (e.g., https://rhods-dashboard-redhat-ods-applications.apps.mycluster.example.com)",
+    )
+
     @field_validator("kubeconfig_path", mode="before")
     @classmethod
     def resolve_kubeconfig_path(cls, v: str | Path | None) -> Path | None:
