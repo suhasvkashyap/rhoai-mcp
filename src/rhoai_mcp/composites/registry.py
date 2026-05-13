@@ -150,6 +150,35 @@ class NeuralNavCompositesPlugin(BasePlugin):
         return client.health_check()
 
 
+class RuntimeCompatibilityPlugin(BasePlugin):
+    """Plugin for runtime version compatibility checking.
+
+    Provides tools to detect and resolve version compatibility issues
+    between serving runtimes, CUDA drivers, and GPU hardware.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            PluginMetadata(
+                name="runtime-compatibility",
+                version="1.0.0",
+                description="Runtime/CUDA/GPU compatibility detection and resolution tools",
+                maintainer="rhoai-mcp@redhat.com",
+                requires_crds=[],
+            )
+        )
+
+    @hookimpl
+    def rhoai_register_tools(self, mcp: FastMCP, server: RHOAIServer) -> None:
+        from rhoai_mcp.composites.compatibility.tools import register_tools
+
+        register_tools(mcp, server)
+
+    @hookimpl
+    def rhoai_health_check(self, server: RHOAIServer) -> tuple[bool, str]:  # noqa: ARG002
+        return True, "Runtime compatibility uses built-in knowledge base"
+
+
 def get_composite_plugins() -> list[BasePlugin]:
     """Return all composite plugin instances.
 
@@ -161,4 +190,5 @@ def get_composite_plugins() -> list[BasePlugin]:
         TrainingCompositesPlugin(),
         MetaCompositesPlugin(),
         NeuralNavCompositesPlugin(),
+        RuntimeCompatibilityPlugin(),
     ]

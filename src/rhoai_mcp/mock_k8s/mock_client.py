@@ -133,6 +133,14 @@ class MockK8sClient(K8sClient):
                 event.count = 3
                 event.last_timestamp = "2025-01-15T12:30:00Z"
                 events_result.items = [event]
+            elif "llama-serving-fail" in field_selector:
+                event = MagicMock()
+                event.type = "Warning"
+                event.reason = "BackOff"
+                event.message = "Back-off restarting failed container kserve-container"
+                event.count = 5
+                event.last_timestamp = "2025-01-15T14:00:00Z"
+                events_result.items = [event]
 
             return events_result
 
@@ -140,6 +148,16 @@ class MockK8sClient(K8sClient):
 
         # Mock read_namespaced_pod_log to return realistic logs
         def mock_read_pod_log(name: str, namespace: str, **kwargs: Any) -> str:  # noqa: ARG001
+            if "llama-serving-fail" in name:
+                return (
+                    "RuntimeError: CUDA error: no kernel image is available "
+                    "for execution on the device\n"
+                    "CUDA kernel errors might be asynchronously reported at "
+                    "some other API call, so the stacktrace below might be "
+                    "incorrect.\n"
+                    "Compile with `TORCH_USE_CUDA_DSA` to enable device-side "
+                    "assertions.\n"
+                )
             if "failed" in name:
                 return (
                     "torch.cuda.OutOfMemoryError: CUDA out of memory. "
@@ -169,19 +187,55 @@ class MockK8sClient(K8sClient):
                 pod.metadata.namespace = namespace
                 pod.status.phase = "Succeeded"
                 result.items = [pod]
+            elif "llama-serving-fail" in label_selector:
+                pod = MagicMock()
+                pod.metadata.name = "llama-serving-fail-predictor-00001-xyz"
+                pod.metadata.namespace = namespace
+                pod.status.phase = "Running"
+                pod.spec.node_name = "gpu-node-3"
+                pod.status.conditions = [
+                    MagicMock(type="Ready", status="False"),
+                ]
+                pod.status.container_statuses = [
+                    MagicMock(
+                        state=MagicMock(
+                            waiting=MagicMock(reason="CrashLoopBackOff")
+                        ),
+                        restart_count=5,
+                    )
+                ]
+                result.items = [pod]
+            elif "granite-serving" in label_selector:
+                pod = MagicMock()
+                pod.metadata.name = "granite-serving-predictor-00001-abc"
+                pod.metadata.namespace = namespace
+                pod.status.phase = "Running"
+                pod.spec.node_name = "gpu-node-1"
+                pod.status.conditions = [
+                    MagicMock(type="Ready", status="True"),
+                ]
+                result.items = [pod]
 
             return result
 
         mock.list_namespaced_pod = mock_list_pods
 
-        # Mock list_node to return nodes with GPU resources
+        # Mock list_node to return nodes with GPU resources and CUDA/driver labels
         def mock_list_nodes(**kwargs: Any) -> MagicMock:  # noqa: ARG001
             result = MagicMock()
-            # Create two GPU nodes
+
             gpu_node = MagicMock()
             gpu_node.metadata.name = "gpu-node-1"
             gpu_node.metadata.labels = {
                 "nvidia.com/gpu.product": "NVIDIA-A100-SXM4-80GB",
+                "nvidia.com/cuda.runtime.major": "12",
+                "nvidia.com/cuda.runtime.minor": "4",
+                "nvidia.com/gpu.compute.major": "8",
+                "nvidia.com/gpu.compute.minor": "0",
+                "nvidia.com/gpu.memory": "81920",
+                "nvidia.com/gpu.driver.major": "535",
+                "nvidia.com/gpu.driver.minor": "129",
+                "nvidia.com/gpu.driver.rev": "03",
                 "node-role.kubernetes.io/worker": "",
             }
             gpu_node.status.capacity = {
@@ -199,6 +253,14 @@ class MockK8sClient(K8sClient):
             gpu_node2.metadata.name = "gpu-node-2"
             gpu_node2.metadata.labels = {
                 "nvidia.com/gpu.product": "NVIDIA-A100-SXM4-80GB",
+                "nvidia.com/cuda.runtime.major": "12",
+                "nvidia.com/cuda.runtime.minor": "4",
+                "nvidia.com/gpu.compute.major": "8",
+                "nvidia.com/gpu.compute.minor": "0",
+                "nvidia.com/gpu.memory": "81920",
+                "nvidia.com/gpu.driver.major": "535",
+                "nvidia.com/gpu.driver.minor": "129",
+                "nvidia.com/gpu.driver.rev": "03",
                 "node-role.kubernetes.io/worker": "",
             }
             gpu_node2.status.capacity = {
@@ -212,7 +274,33 @@ class MockK8sClient(K8sClient):
                 "nvidia.com/gpu": "4",
             }
 
-            result.items = [gpu_node, gpu_node2]
+            # Heterogeneous node with older T4 GPU and older CUDA
+            gpu_node3 = MagicMock()
+            gpu_node3.metadata.name = "gpu-node-3"
+            gpu_node3.metadata.labels = {
+                "nvidia.com/gpu.product": "Tesla-T4",
+                "nvidia.com/cuda.runtime.major": "12",
+                "nvidia.com/cuda.runtime.minor": "2",
+                "nvidia.com/gpu.compute.major": "7",
+                "nvidia.com/gpu.compute.minor": "5",
+                "nvidia.com/gpu.memory": "15360",
+                "nvidia.com/gpu.driver.major": "525",
+                "nvidia.com/gpu.driver.minor": "60",
+                "nvidia.com/gpu.driver.rev": "13",
+                "node-role.kubernetes.io/worker": "",
+            }
+            gpu_node3.status.capacity = {
+                "cpu": "32",
+                "memory": "128Gi",
+                "nvidia.com/gpu": "2",
+            }
+            gpu_node3.status.allocatable = {
+                "cpu": "30",
+                "memory": "120Gi",
+                "nvidia.com/gpu": "2",
+            }
+
+            result.items = [gpu_node, gpu_node2, gpu_node3]
             return result
 
         mock.list_node = mock_list_nodes

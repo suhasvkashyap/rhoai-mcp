@@ -355,7 +355,47 @@ def create_default_cluster_state() -> ClusterState:
         kind="InferenceService",
         api_version="serving.kserve.io/v1beta1",
     )
-    state.resources.setdefault("serving.kserve.io/v1beta1/inferenceservices", []).append(isvc)
+    # Failing InferenceService (CUDA compatibility mismatch)
+    isvc_fail = MockResource(
+        metadata=MockMetadata(
+            name="llama-serving-fail",
+            namespace="production-models",
+            labels={"serving.kserve.io/inferenceservice": "llama-serving-fail"},
+            annotations={
+                "openshift.io/display-name": "LLaMA 3 8B (Failing)",
+            },
+            uid=_make_uid("isvc", "llama-serving-fail"),
+        ),
+        spec={
+            "predictor": {
+                "model": {
+                    "modelFormat": {"name": "vLLM"},
+                    "runtime": "vllm-runtime",
+                    "storageUri": "s3://models/llama-3-8b",
+                },
+                "resources": {
+                    "limits": {"nvidia.com/gpu": "1"},
+                    "requests": {"nvidia.com/gpu": "1"},
+                },
+            }
+        },
+        status={
+            "conditions": [
+                {
+                    "type": "Ready",
+                    "status": "False",
+                    "reason": "RevisionFailed",
+                    "message": "Container failed to start",
+                },
+            ],
+        },
+        kind="InferenceService",
+        api_version="serving.kserve.io/v1beta1",
+    )
+
+    state.resources.setdefault("serving.kserve.io/v1beta1/inferenceservices", []).extend(
+        [isvc, isvc_fail]
+    )
 
     # --- ServingRuntime ---
     srt = MockResource(
@@ -458,6 +498,28 @@ def create_default_cluster_state() -> ClusterState:
         },
     )
     state.secrets.append(s3_secret)
+
+    # --- ClusterServiceVersions (installed operators) ---
+    csv_data = [
+        ("rhods-operator.2.16.0", "redhat-ods-operator", "Succeeded", "2.16.0"),
+        ("gpu-operator-certified.v24.6.2", "nvidia-gpu-operator", "Succeeded", "24.6.2"),
+        ("nfd.4.19.0", "openshift-nfd", "Succeeded", "4.19.0"),
+    ]
+    for csv_name, csv_ns, phase, version in csv_data:
+        csv = MockResource(
+            metadata=MockMetadata(
+                name=csv_name,
+                namespace=csv_ns,
+                uid=_make_uid("csv", csv_name),
+            ),
+            spec={"version": version},
+            status={"phase": phase},
+            kind="ClusterServiceVersion",
+            api_version="operators.coreos.com/v1alpha1",
+        )
+        state.resources.setdefault(
+            "operators.coreos.com/v1alpha1/clusterserviceversions", []
+        ).append(csv)
 
     # --- PVCs ---
     pvc = MockResource(

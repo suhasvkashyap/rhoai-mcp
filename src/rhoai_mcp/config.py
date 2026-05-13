@@ -189,6 +189,12 @@ class RHOAIConfig(BaseSettings):
         description="Skip TLS certificate verification for Model Registry (not recommended for production)",
     )
 
+    # RHOAI platform version (for compatibility matrix lookups)
+    rhoai_version: str = Field(
+        default="2.16",
+        description="RHOAI platform version for runtime compatibility checks",
+    )
+
     # Neural Navigator settings
     neuralnav_url: str = Field(
         default="http://backend.neuralnav.svc.cluster.local:8000",
